@@ -3,6 +3,8 @@ import { TasksService } from './tasks.service';
 import { Task, TaskStatus } from './task.model';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { get } from 'http';
+import { TaskStatusValidationPipe } from './pipes/tasks-status-validation.pipe';
+import { GetTasksFilterDto } from './dto/get-tasks-filter.dto';
 
 @Controller('tasks')
 export class TasksController {
@@ -11,7 +13,7 @@ export class TasksController {
     ) {}
 
     @Get()
-    getTasks(@Query() filterDto): Task[] {
+    getTasks(@Query(ValidationPipe) filterDto: GetTasksFilterDto): Task[] {
         if (Object.keys(filterDto).length) {
             console.log('filter');
             return this.tasksService.getFilteredTasks(filterDto);
@@ -43,7 +45,7 @@ export class TasksController {
     @Patch('/:id/status')
     updateTaskById(
         @Param('id') id: string,
-        @Body('status') status: TaskStatus
+        @Body('status', TaskStatusValidationPipe) status: TaskStatus
     ): Task {
         return this.tasksService.updateTaskById(id, status);
     }
