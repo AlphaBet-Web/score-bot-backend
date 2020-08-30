@@ -3,39 +3,43 @@ import { Task, TaskStatus } from './task.model';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { GetTasksFilterDto } from './dto/get-tasks-filter.dto';
+import { InjectModel } from 'nestjs-typegoose';
+import { TaskDocument } from './task.schema';
+import { ReturnModelType } from '@typegoose/typegoose';
 
 @Injectable()
 export class TasksService {
-    private tasks: Task[] = [];
 
-    getAllTasks(): Task[] {
-        return this.tasks;
+    constructor(
+        @InjectModel(TaskDocument) private readonly taskModel: ReturnModelType<typeof TaskDocument>
+    ) {}
+
+    async getAllTasks(): Promise<TaskDocument[] | null> {
+        return await this.taskModel.find().exec();
     }
 
-    getTaskById(id: string): Task {
-        const found = this.tasks.find(task => task.id === id);
+    async getTaskById(id: string): Promise<TaskDocument | null> {
+        const found = await this.taskModel.findOne({id});
         if(!found) {
             throw new NotFoundException(`Task with ID ${id} not found`);
         }
         return found;
     }
 
-    getFilteredTasks(filterDto: GetTasksFilterDto): Task[] {
+    async getFilteredTasks(filterDto: GetTasksFilterDto): Promise<TaskDocument[] | null> {
         const { status, search } = filterDto;
-        let tasks = this.getAllTasks();
+        console.log(filterDto);
+        let query: {[k: string]: any} = {};
         if (status) {
-            tasks = tasks.filter(task => task.status === status);
+            query.status = status;
         }
         if (search) {
-            tasks = tasks.filter(task => {
-                return task.title.includes(search) || task.description.includes(search)
-            });
+            query.title = {$regex:search,$options:"i"}
         }
-        return tasks;
+        return await this.taskModel.find(query);
     }
 
-    // createTask(title: string, description: string): Task {
-    createTask(createTaskDto: CreateTaskDto): Task {
+    async createTask(createTaskDto: CreateTaskDto): Promise<TaskDocument> {
         const { title, description } = createTaskDto;
         const task: Task = {
             id: uuidv4(),
@@ -43,21 +47,16 @@ export class TasksService {
             description,
             status: TaskStatus.OPEN
         };
-
-        this.tasks.push(task);
-        return task;
+        const createdCat = new this.taskModel(task);
+        return await createdCat.save();
     }
 
-    updateTaskById(id: string, status: TaskStatus): Task {
-        const task = this.getTaskById(id);
-        task.status = status;
-        return task;
+    async updateTaskById(id: string, status: TaskStatus): Promise<TaskDocument | null> {
+        return await this.taskModel.findOneAndUpdate({ id }, { status });
     }
 
-    deleteTaskById(id: string): Task {
-        const task = this.getTaskById(id);
-        this.tasks = this.tasks.filter(task => task.id !== id);
-        return task;
+    async deleteTaskById(id: string): Promise<TaskDocument | null> {
+        return await this.taskModel.findOneAndDelete({ id });
     }
 
 }
